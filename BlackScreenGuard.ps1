@@ -64,7 +64,7 @@ function New-Label {
         [int]$Height,
         [float]$Size = 10,
         [System.Drawing.FontStyle]$Style = [System.Drawing.FontStyle]::Regular,
-        [System.Drawing.Color]$Color = [System.Drawing.Color]::FromArgb(31, 41, 55)
+        [System.Drawing.Color]$Color = [System.Drawing.Color]::FromArgb(226, 232, 240)
     )
     $label = [System.Windows.Forms.Label]::new()
     $label.Text = $Text
@@ -128,7 +128,7 @@ function Stop-Blackout {
     $script:MainForm.WindowState = [System.Windows.Forms.FormWindowState]::Normal
     $script:MainForm.Activate()
     $script:StateValue.Text = '未运行'
-    $script:StateValue.ForeColor = [System.Drawing.Color]::FromArgb(107, 114, 128)
+    $script:StateValue.ForeColor = [System.Drawing.Color]::FromArgb(148, 163, 184)
     $script:StartTimeValue.Text = '—'
     $script:DurationValue.Text = '00:00:00'
     $script:StartButton.Enabled = $true
@@ -259,36 +259,36 @@ $script:MainForm.Text = 'BlackScreen Guard｜黑屏守护'
 $script:MainForm.ClientSize = [System.Drawing.Size]::new(760, 650)
 $script:MainForm.MinimumSize = [System.Drawing.Size]::new(776, 689)
 $script:MainForm.StartPosition = [System.Windows.Forms.FormStartPosition]::CenterScreen
-$script:MainForm.BackColor = [System.Drawing.Color]::FromArgb(245, 247, 251)
+$script:MainForm.BackColor = [System.Drawing.Color]::FromArgb(9, 13, 21)
 $script:MainForm.Font = [System.Drawing.Font]::new('Microsoft YaHei UI', 10)
 
-$title = New-Label -Text 'BlackScreen Guard｜黑屏守护' -X 42 -Y 32 -Width 650 -Height 42 -Size 21 -Style Bold -Color ([System.Drawing.Color]::FromArgb(17, 24, 39))
-$subtitle = New-Label -Text '适用于 Windows 11 的显示器黑屏保护工具。使用纯黑遮罩覆盖所有显示器，防止系统休眠和显示器自动关闭，让电脑保持唤醒，确保黑屏期间后台程序继续运行，并维持远程连接所需的运行环境。' -X 45 -Y 78 -Width 650 -Height 52 -Size 9 -Color ([System.Drawing.Color]::FromArgb(107, 114, 128))
+$title = New-Label -Text 'BlackScreen Guard｜黑屏守护' -X 42 -Y 32 -Width 650 -Height 42 -Size 21 -Style Bold -Color ([System.Drawing.Color]::FromArgb(248, 250, 252))
+$subtitle = New-Label -Text '适用于 Windows 11 的显示器黑屏保护工具。使用纯黑遮罩覆盖所有显示器，防止系统休眠和显示器自动关闭，让电脑保持唤醒，确保黑屏期间后台程序继续运行，并维持远程连接所需的运行环境。' -X 45 -Y 78 -Width 650 -Height 52 -Size 9 -Color ([System.Drawing.Color]::FromArgb(148, 163, 184))
 
 $statusCard = [System.Windows.Forms.Panel]::new()
 $statusCard.Location = [System.Drawing.Point]::new(42, 145)
 $statusCard.Size = [System.Drawing.Size]::new(676, 200)
-$statusCard.BackColor = [System.Drawing.Color]::White
+$statusCard.BackColor = [System.Drawing.Color]::FromArgb(18, 25, 38)
 
 $statusHeading = New-Label -Text '运行状态' -X 24 -Y 20 -Width 160 -Height 28 -Size 12 -Style Bold
-$stateLabel = New-Label -Text '状态' -X 24 -Y 72 -Width 120 -Height 24 -Color ([System.Drawing.Color]::FromArgb(107, 114, 128))
-$script:StateValue = New-Label -Text '未运行' -X 165 -Y 72 -Width 180 -Height 24 -Style Bold -Color ([System.Drawing.Color]::FromArgb(107, 114, 128))
-$startLabel = New-Label -Text '开始时间' -X 350 -Y 72 -Width 120 -Height 24 -Color ([System.Drawing.Color]::FromArgb(107, 114, 128))
+$stateLabel = New-Label -Text '状态' -X 24 -Y 72 -Width 120 -Height 24 -Color ([System.Drawing.Color]::FromArgb(148, 163, 184))
+$script:StateValue = New-Label -Text '未运行' -X 165 -Y 72 -Width 180 -Height 24 -Style Bold -Color ([System.Drawing.Color]::FromArgb(148, 163, 184))
+$startLabel = New-Label -Text '开始时间' -X 350 -Y 72 -Width 120 -Height 24 -Color ([System.Drawing.Color]::FromArgb(148, 163, 184))
 $script:StartTimeValue = New-Label -Text '—' -X 470 -Y 72 -Width 190 -Height 24 -Style Bold
-$durationLabel = New-Label -Text '当前黑屏持续时间' -X 24 -Y 125 -Width 140 -Height 24 -Color ([System.Drawing.Color]::FromArgb(107, 114, 128))
+$durationLabel = New-Label -Text '当前黑屏持续时间' -X 24 -Y 125 -Width 140 -Height 24 -Color ([System.Drawing.Color]::FromArgb(148, 163, 184))
 $script:DurationValue = New-Label -Text '00:00:00' -X 165 -Y 125 -Width 180 -Height 24 -Size 12 -Style Bold
-$displayLabel = New-Label -Text '覆盖显示器' -X 350 -Y 125 -Width 120 -Height 24 -Color ([System.Drawing.Color]::FromArgb(107, 114, 128))
+$displayLabel = New-Label -Text '覆盖显示器' -X 350 -Y 125 -Width 120 -Height 24 -Color ([System.Drawing.Color]::FromArgb(148, 163, 184))
 $displayValue = New-Label -Text ("{0} 台" -f [System.Windows.Forms.Screen]::AllScreens.Count) -X 470 -Y 125 -Width 160 -Height 24 -Style Bold
 $statusCard.Controls.AddRange(@($statusHeading, $stateLabel, $script:StateValue, $startLabel, $script:StartTimeValue, $durationLabel, $script:DurationValue, $displayLabel, $displayValue))
 
 $settingsCard = [System.Windows.Forms.Panel]::new()
 $settingsCard.Location = [System.Drawing.Point]::new(42, 365)
 $settingsCard.Size = [System.Drawing.Size]::new(676, 160)
-$settingsCard.BackColor = [System.Drawing.Color]::White
+$settingsCard.BackColor = [System.Drawing.Color]::FromArgb(18, 25, 38)
 $settingsHeading = New-Label -Text '保护设置' -X 24 -Y 18 -Width 160 -Height 28 -Size 12 -Style Bold
-$sleepStatus = New-Label -Text '●  已阻止系统休眠' -X 24 -Y 65 -Width 250 -Height 25 -Color ([System.Drawing.Color]::FromArgb(22, 163, 74))
-$displayStatus = New-Label -Text '●  已阻止显示器自动关闭' -X 335 -Y 65 -Width 280 -Height 25 -Color ([System.Drawing.Color]::FromArgb(22, 163, 74))
-$gestureHint = New-Label -Text '轻移显示鼠标；移动约 30 像素或单击显示控制面板；Esc 退出。' -X 24 -Y 112 -Width 620 -Height 25 -Size 9 -Color ([System.Drawing.Color]::FromArgb(107, 114, 128))
+$sleepStatus = New-Label -Text '●  已阻止系统休眠' -X 24 -Y 65 -Width 250 -Height 25 -Color ([System.Drawing.Color]::FromArgb(74, 222, 128))
+$displayStatus = New-Label -Text '●  已阻止显示器自动关闭' -X 335 -Y 65 -Width 280 -Height 25 -Color ([System.Drawing.Color]::FromArgb(74, 222, 128))
+$gestureHint = New-Label -Text '轻移显示鼠标；移动约 30 像素或单击显示控制面板；Esc 退出。' -X 24 -Y 112 -Width 620 -Height 25 -Size 9 -Color ([System.Drawing.Color]::FromArgb(148, 163, 184))
 $settingsCard.Controls.AddRange(@($settingsHeading, $sleepStatus, $displayStatus, $gestureHint))
 
 $script:StartButton = New-Button -Text '开始' -X 42 -Y 550 -Width 676 -Height 54
