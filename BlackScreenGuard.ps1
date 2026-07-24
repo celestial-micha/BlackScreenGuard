@@ -1,0 +1,324 @@
+﻿param()
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+$SelfTest = $args -contains '-SelfTest'
+
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
+
+Add-Type @'
+using System;
+using System.Runtime.InteropServices;
+
+public static class BlackScreenGuardNative {
+    [DllImport("kernel32.dll")]
+    public static extern uint SetThreadExecutionState(uint flags);
+
+    public const uint ES_CONTINUOUS       = 0x80000000;
+    public const uint ES_SYSTEM_REQUIRED  = 0x00000001;
+    public const uint ES_DISPLAY_REQUIRED = 0x00000002;
+}
+'@
+
+[System.Windows.Forms.Application]::EnableVisualStyles()
+[System.Windows.Forms.Application]::SetCompatibleTextRenderingDefault($false)
+
+$script:BlackWindows = [System.Collections.Generic.List[System.Windows.Forms.Form]]::new()
+$script:SessionStartedAt = $null
+$script:IsBlackoutActive = $false
+$script:StartMousePosition = [System.Drawing.Point]::Empty
+$script:CursorShown = $false
+$script:SuppressCursorRevealUntil = [DateTime]::MinValue
+$script:ControlPanelVisible = $false
+$script:ControlPanelTimer = [System.Windows.Forms.Timer]::new()
+$script:ControlPanelTimer.Interval = 2000
+$script:CursorIdleTimer = [System.Windows.Forms.Timer]::new()
+$script:CursorIdleTimer.Interval = 2000
+
+function Set-BlackoutCursorVisible {
+    param([bool]$Visible)
+    if ($Visible -and -not $script:CursorShown) {
+        [System.Windows.Forms.Cursor]::Show()
+        $script:CursorShown = $true
+    }
+    elseif (-not $Visible -and $script:CursorShown) {
+        [System.Windows.Forms.Cursor]::Hide()
+        $script:CursorShown = $false
+    }
+}
+
+function Restart-CursorIdleTimer {
+    $script:CursorIdleTimer.Stop()
+    if ($script:IsBlackoutActive) {
+        $script:CursorIdleTimer.Start()
+    }
+}
+
+function New-Label {
+    param(
+        [string]$Text,
+        [int]$X,
+        [int]$Y,
+        [int]$Width,
+        [int]$Height,
+        [float]$Size = 10,
+        [System.Drawing.FontStyle]$Style = [System.Drawing.FontStyle]::Regular,
+        [System.Drawing.Color]$Color = [System.Drawing.Color]::FromArgb(31, 41, 55)
+    )
+    $label = [System.Windows.Forms.Label]::new()
+    $label.Text = $Text
+    $label.Location = [System.Drawing.Point]::new($X, $Y)
+    $label.Size = [System.Drawing.Size]::new($Width, $Height)
+    $label.Font = [System.Drawing.Font]::new('Microsoft YaHei UI', $Size, $Style)
+    $label.ForeColor = $Color
+    $label.BackColor = [System.Drawing.Color]::Transparent
+    return $label
+}
+
+function New-Button {
+    param([string]$Text, [int]$X, [int]$Y, [int]$Width, [int]$Height)
+    $button = [System.Windows.Forms.Button]::new()
+    $button.Text = $Text
+    $button.Location = [System.Drawing.Point]::new($X, $Y)
+    $button.Size = [System.Drawing.Size]::new($Width, $Height)
+    $button.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+    $button.FlatAppearance.BorderSize = 0
+    $button.Font = [System.Drawing.Font]::new('Microsoft YaHei UI', 10, [System.Drawing.FontStyle]::Bold)
+    $button.Cursor = [System.Windows.Forms.Cursors]::Hand
+    return $button
+}
+
+function Set-ControlPanelVisibility {
+    param([bool]$Visible)
+    $script:ControlPanelVisible = $Visible
+    $script:ControlPanelTimer.Stop()
+    foreach ($window in $script:BlackWindows) {
+        $panel = $window.Controls['ActionPanel']
+        if ($null -ne $panel) {
+            $panel.Visible = $Visible
+            if ($Visible) { $panel.BringToFront() }
+        }
+    }
+    if ($Visible) {
+        $script:ControlPanelTimer.Start()
+    }
+    elseif ($script:IsBlackoutActive) {
+        # 隐藏面板时进入全新的纯黑状态，避免点击产生的细小位移
+        # 继续沿用旧基准而立即再次触发控制面板。
+        $script:CursorIdleTimer.Stop()
+        $script:StartMousePosition = [System.Windows.Forms.Cursor]::Position
+        $script:SuppressCursorRevealUntil = (Get-Date).AddMilliseconds(500)
+        Set-BlackoutCursorVisible $false
+    }
+}
+
+function Stop-Blackout {
+    $script:ControlPanelTimer.Stop()
+    $script:CursorIdleTimer.Stop()
+    $script:IsBlackoutActive = $false
+    Set-BlackoutCursorVisible $true
+    foreach ($window in @($script:BlackWindows)) {
+        $window.Close()
+        $window.Dispose()
+    }
+    $script:BlackWindows.Clear()
+    [void][BlackScreenGuardNative]::SetThreadExecutionState([BlackScreenGuardNative]::ES_CONTINUOUS)
+    $script:MainForm.Show()
+    $script:MainForm.WindowState = [System.Windows.Forms.FormWindowState]::Normal
+    $script:MainForm.Activate()
+    $script:StateValue.Text = '未运行'
+    $script:StateValue.ForeColor = [System.Drawing.Color]::FromArgb(107, 114, 128)
+    $script:StartTimeValue.Text = '—'
+    $script:DurationValue.Text = '00:00:00'
+    $script:StartButton.Enabled = $true
+}
+
+function Test-ActivationGesture {
+    param([System.Windows.Forms.MouseEventArgs]$EventArgs)
+    if ((Get-Date) -lt $script:SuppressCursorRevealUntil) {
+        return
+    }
+    Restart-CursorIdleTimer
+    if (-not $script:CursorShown) {
+        Set-BlackoutCursorVisible $true
+        $script:StartMousePosition = [System.Windows.Forms.Cursor]::Position
+        return
+    }
+
+    $current = [System.Windows.Forms.Cursor]::Position
+    $dx = $current.X - $script:StartMousePosition.X
+    $dy = $current.Y - $script:StartMousePosition.Y
+    $distanceSquared = ($dx * $dx) + ($dy * $dy)
+    if ($EventArgs.Button -ne [System.Windows.Forms.MouseButtons]::None -or $distanceSquared -ge 900) {
+        Set-ControlPanelVisibility $true
+    }
+}
+
+function New-BlackWindow {
+    param([System.Windows.Forms.Screen]$Screen, [bool]$Primary)
+
+    $window = [System.Windows.Forms.Form]::new()
+    $window.Name = 'BlackScreenGuardBlackout'
+    $window.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::None
+    $window.StartPosition = [System.Windows.Forms.FormStartPosition]::Manual
+    $window.Bounds = $Screen.Bounds
+    $window.BackColor = [System.Drawing.Color]::Black
+    $window.TopMost = $true
+    $window.ShowInTaskbar = $false
+    $window.KeyPreview = $true
+
+    $panel = [System.Windows.Forms.Panel]::new()
+    $panel.Name = 'ActionPanel'
+    $panel.Size = [System.Drawing.Size]::new(330, 145)
+    $panel.Location = [System.Drawing.Point]::new(
+        [Math]::Max(0, [int](($Screen.Bounds.Width - $panel.Width) / 2)),
+        [Math]::Max(0, [int](($Screen.Bounds.Height - $panel.Height) / 2))
+    )
+    $panel.BackColor = [System.Drawing.Color]::FromArgb(32, 36, 44)
+    $panel.Visible = $false
+
+    $hint = New-Label -Text '黑屏守护中' -X 20 -Y 18 -Width 290 -Height 28 -Size 13 -Style Bold -Color ([System.Drawing.Color]::White)
+    $continueButton = New-Button -Text '继续黑屏' -X 20 -Y 70 -Width 135 -Height 48
+    $continueButton.BackColor = [System.Drawing.Color]::FromArgb(55, 65, 81)
+    $continueButton.ForeColor = [System.Drawing.Color]::White
+    $exitButton = New-Button -Text '退出程序' -X 175 -Y 70 -Width 135 -Height 48
+    $exitButton.BackColor = [System.Drawing.Color]::FromArgb(37, 99, 235)
+    $exitButton.ForeColor = [System.Drawing.Color]::White
+    $continueButton.Add_Click({ Set-ControlPanelVisibility $false })
+    $exitButton.Add_Click({ $script:MainForm.Close() })
+    $panel.Controls.AddRange(@($hint, $continueButton, $exitButton))
+    $window.Controls.Add($panel)
+
+    $window.Add_MouseMove({ param($sender, $eventArgs) Test-ActivationGesture $eventArgs })
+    $window.Add_MouseDown({ param($sender, $eventArgs) Test-ActivationGesture $eventArgs })
+    $window.Add_KeyDown({
+        param($sender, $eventArgs)
+        $eventArgs.SuppressKeyPress = $true
+        $eventArgs.Handled = $true
+        if ($eventArgs.KeyCode -eq [System.Windows.Forms.Keys]::Escape) {
+            $script:MainForm.Close()
+        }
+    })
+    $window.Add_Deactivate({
+        if ($script:IsBlackoutActive) {
+            $sender.TopMost = $true
+            $sender.Activate()
+        }
+    })
+    return $window
+}
+
+function Start-Blackout {
+    if ($script:IsBlackoutActive) { return }
+    $script:IsBlackoutActive = $true
+    $script:SessionStartedAt = Get-Date
+    $script:StartMousePosition = [System.Windows.Forms.Cursor]::Position
+    $script:SuppressCursorRevealUntil = [DateTime]::MinValue
+    # 会话开始前 Windows 指针处于可见状态，随后统一隐藏一次。
+    $script:CursorShown = $true
+    $script:ControlPanelVisible = $false
+    $script:StartButton.Enabled = $false
+    $script:StateValue.Text = '正在保护'
+    $script:StateValue.ForeColor = [System.Drawing.Color]::FromArgb(22, 163, 74)
+    $script:StartTimeValue.Text = $script:SessionStartedAt.ToString('yyyy-MM-dd HH:mm:ss')
+
+    $flags = [BlackScreenGuardNative]::ES_CONTINUOUS -bor
+             [BlackScreenGuardNative]::ES_SYSTEM_REQUIRED -bor
+             [BlackScreenGuardNative]::ES_DISPLAY_REQUIRED
+    [void][BlackScreenGuardNative]::SetThreadExecutionState($flags)
+
+    foreach ($screen in [System.Windows.Forms.Screen]::AllScreens) {
+        $window = New-BlackWindow -Screen $screen -Primary $screen.Primary
+        $script:BlackWindows.Add($window)
+    }
+
+    $script:MainForm.Hide()
+    Set-BlackoutCursorVisible $false
+    foreach ($window in $script:BlackWindows) {
+        $window.Show()
+        $window.BringToFront()
+    }
+    $primaryWindow = $script:BlackWindows | Where-Object {
+        $_.Bounds.Contains([System.Windows.Forms.Cursor]::Position)
+    } | Select-Object -First 1
+    if ($null -eq $primaryWindow) { $primaryWindow = $script:BlackWindows[0] }
+    $primaryWindow.Activate()
+}
+
+$script:ControlPanelTimer.Add_Tick({ Set-ControlPanelVisibility $false })
+$script:CursorIdleTimer.Add_Tick({
+    $script:CursorIdleTimer.Stop()
+    if ($script:IsBlackoutActive) {
+        Set-BlackoutCursorVisible $false
+    }
+})
+
+$script:MainForm = [System.Windows.Forms.Form]::new()
+$script:MainForm.Text = 'BlackScreen Guard｜黑屏守护'
+$script:MainForm.ClientSize = [System.Drawing.Size]::new(760, 650)
+$script:MainForm.MinimumSize = [System.Drawing.Size]::new(776, 689)
+$script:MainForm.StartPosition = [System.Windows.Forms.FormStartPosition]::CenterScreen
+$script:MainForm.BackColor = [System.Drawing.Color]::FromArgb(245, 247, 251)
+$script:MainForm.Font = [System.Drawing.Font]::new('Microsoft YaHei UI', 10)
+
+$title = New-Label -Text 'BlackScreen Guard｜黑屏守护' -X 42 -Y 32 -Width 650 -Height 42 -Size 21 -Style Bold -Color ([System.Drawing.Color]::FromArgb(17, 24, 39))
+$subtitle = New-Label -Text '适用于 Windows 11 的显示器黑屏保护工具。使用纯黑遮罩覆盖所有显示器，防止系统休眠和显示器自动关闭，让电脑保持唤醒，确保黑屏期间后台程序继续运行，并维持远程连接所需的运行环境。' -X 45 -Y 78 -Width 650 -Height 52 -Size 9 -Color ([System.Drawing.Color]::FromArgb(107, 114, 128))
+
+$statusCard = [System.Windows.Forms.Panel]::new()
+$statusCard.Location = [System.Drawing.Point]::new(42, 145)
+$statusCard.Size = [System.Drawing.Size]::new(676, 200)
+$statusCard.BackColor = [System.Drawing.Color]::White
+
+$statusHeading = New-Label -Text '运行状态' -X 24 -Y 20 -Width 160 -Height 28 -Size 12 -Style Bold
+$stateLabel = New-Label -Text '状态' -X 24 -Y 72 -Width 120 -Height 24 -Color ([System.Drawing.Color]::FromArgb(107, 114, 128))
+$script:StateValue = New-Label -Text '未运行' -X 165 -Y 72 -Width 180 -Height 24 -Style Bold -Color ([System.Drawing.Color]::FromArgb(107, 114, 128))
+$startLabel = New-Label -Text '开始时间' -X 350 -Y 72 -Width 120 -Height 24 -Color ([System.Drawing.Color]::FromArgb(107, 114, 128))
+$script:StartTimeValue = New-Label -Text '—' -X 470 -Y 72 -Width 190 -Height 24 -Style Bold
+$durationLabel = New-Label -Text '当前黑屏持续时间' -X 24 -Y 125 -Width 140 -Height 24 -Color ([System.Drawing.Color]::FromArgb(107, 114, 128))
+$script:DurationValue = New-Label -Text '00:00:00' -X 165 -Y 125 -Width 180 -Height 24 -Size 12 -Style Bold
+$displayLabel = New-Label -Text '覆盖显示器' -X 350 -Y 125 -Width 120 -Height 24 -Color ([System.Drawing.Color]::FromArgb(107, 114, 128))
+$displayValue = New-Label -Text ("{0} 台" -f [System.Windows.Forms.Screen]::AllScreens.Count) -X 470 -Y 125 -Width 160 -Height 24 -Style Bold
+$statusCard.Controls.AddRange(@($statusHeading, $stateLabel, $script:StateValue, $startLabel, $script:StartTimeValue, $durationLabel, $script:DurationValue, $displayLabel, $displayValue))
+
+$settingsCard = [System.Windows.Forms.Panel]::new()
+$settingsCard.Location = [System.Drawing.Point]::new(42, 365)
+$settingsCard.Size = [System.Drawing.Size]::new(676, 160)
+$settingsCard.BackColor = [System.Drawing.Color]::White
+$settingsHeading = New-Label -Text '保护设置' -X 24 -Y 18 -Width 160 -Height 28 -Size 12 -Style Bold
+$sleepStatus = New-Label -Text '●  已阻止系统休眠' -X 24 -Y 65 -Width 250 -Height 25 -Color ([System.Drawing.Color]::FromArgb(22, 163, 74))
+$displayStatus = New-Label -Text '●  已阻止显示器自动关闭' -X 335 -Y 65 -Width 280 -Height 25 -Color ([System.Drawing.Color]::FromArgb(22, 163, 74))
+$gestureHint = New-Label -Text '轻移显示鼠标；移动约 30 像素或单击显示控制面板；Esc 退出。' -X 24 -Y 112 -Width 620 -Height 25 -Size 9 -Color ([System.Drawing.Color]::FromArgb(107, 114, 128))
+$settingsCard.Controls.AddRange(@($settingsHeading, $sleepStatus, $displayStatus, $gestureHint))
+
+$script:StartButton = New-Button -Text '开始' -X 42 -Y 550 -Width 676 -Height 54
+$script:StartButton.BackColor = [System.Drawing.Color]::FromArgb(37, 99, 235)
+$script:StartButton.ForeColor = [System.Drawing.Color]::White
+$script:StartButton.Add_Click({ Start-Blackout })
+
+$statusTimer = [System.Windows.Forms.Timer]::new()
+$statusTimer.Interval = 1000
+$statusTimer.Add_Tick({
+    if ($script:IsBlackoutActive -and $null -ne $script:SessionStartedAt) {
+        $elapsed = (Get-Date) - $script:SessionStartedAt
+        $script:DurationValue.Text = '{0:00}:{1:00}:{2:00}' -f [int]$elapsed.TotalHours, $elapsed.Minutes, $elapsed.Seconds
+    }
+})
+$statusTimer.Start()
+
+$script:MainForm.Controls.AddRange(@($title, $subtitle, $statusCard, $settingsCard, $script:StartButton))
+$script:MainForm.Add_FormClosing({
+    if ($script:IsBlackoutActive) { Stop-Blackout }
+    [void][BlackScreenGuardNative]::SetThreadExecutionState([BlackScreenGuardNative]::ES_CONTINUOUS)
+})
+
+if ($SelfTest) {
+    Write-Output ('BlackScreen Guard self-test: OK ({0} display(s) detected)' -f [System.Windows.Forms.Screen]::AllScreens.Count)
+    $statusTimer.Dispose()
+    $script:ControlPanelTimer.Dispose()
+    $script:CursorIdleTimer.Dispose()
+    $script:MainForm.Dispose()
+    return
+}
+
+[System.Windows.Forms.Application]::Run($script:MainForm)
