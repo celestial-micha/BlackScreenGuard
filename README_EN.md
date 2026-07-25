@@ -1,10 +1,30 @@
-# BlackScreen Guard
+<p align="center">
+  <img src="assets/BlackScreenGuard.png" width="160" alt="BlackScreen Guard icon">
+</p>
 
-English | [简体中文](README.md)
+<h1 align="center">BlackScreen Guard</h1>
 
-![BlackScreen Guard icon](assets/BlackScreenGuard.png)
+<p align="center">
+  English | <a href="README.md">简体中文</a>
+</p>
 
 A multi-monitor blackout utility for Windows 11. It covers every connected display with a pure-black overlay, prevents idle sleep and automatic display power-off, keeps the computer awake, allows background applications to continue running, and maintains the operating environment required by existing remote connections.
+
+## Interface preview
+
+### Control page
+
+<p align="center">
+  <img src="assets/screenshots/control-page.png" width="760" alt="BlackScreen Guard control page">
+</p>
+
+### Blackout control panel
+
+Move the pointer by about 30 pixels or click during blackout to reveal the **Continue Blackout** and **Exit** controls.
+
+<p align="center">
+  <img src="assets/screenshots/blackout-control.png" width="960" alt="BlackScreen Guard blackout control panel">
+</p>
 
 ## Features
 
@@ -57,4 +77,5 @@ BlackScreenGuard.ps1          Main application
 build-exe.cmd                 EXE build entry point
 package.sed                   IExpress package definition
 assets/                       Icon assets
+assets/screenshots/           README interface screenshots
 ```

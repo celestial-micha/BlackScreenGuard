@@ -3,6 +3,7 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $SelfTest = $args -contains '-SelfTest'
+$CaptureScreenshots = $args -contains '-CaptureScreenshots'
 
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
@@ -311,6 +312,64 @@ $script:MainForm.Add_FormClosing({
     if ($script:IsBlackoutActive) { Stop-Blackout }
     [void][BlackScreenGuardNative]::SetThreadExecutionState([BlackScreenGuardNative]::ES_CONTINUOUS)
 })
+
+if ($CaptureScreenshots) {
+    $screenshotDirectory = Join-Path $PSScriptRoot 'assets\screenshots'
+    [System.IO.Directory]::CreateDirectory($screenshotDirectory) | Out-Null
+
+    $script:MainForm.StartPosition = [System.Windows.Forms.FormStartPosition]::Manual
+    $script:MainForm.Location = [System.Drawing.Point]::new(-20000, -20000)
+    $script:MainForm.Show()
+    [System.Windows.Forms.Application]::DoEvents()
+    $controlBitmap = [System.Drawing.Bitmap]::new(
+        $script:MainForm.ClientSize.Width,
+        $script:MainForm.ClientSize.Height
+    )
+    $script:MainForm.DrawToBitmap(
+        $controlBitmap,
+        [System.Drawing.Rectangle]::new(
+            0,
+            0,
+            $script:MainForm.ClientSize.Width,
+            $script:MainForm.ClientSize.Height
+        )
+    )
+    $controlBitmap.Save(
+        (Join-Path $screenshotDirectory 'control-page.png'),
+        [System.Drawing.Imaging.ImageFormat]::Png
+    )
+    $controlBitmap.Dispose()
+    $script:MainForm.Hide()
+
+    $previewWindow = New-BlackWindow -Screen ([System.Windows.Forms.Screen]::PrimaryScreen) -Primary $true
+    $previewWindow.Location = [System.Drawing.Point]::new(-20000, -20000)
+    $previewWindow.Size = [System.Drawing.Size]::new(1280, 720)
+    $previewPanel = $previewWindow.Controls['ActionPanel']
+    $previewPanel.Location = [System.Drawing.Point]::new(
+        [int](($previewWindow.ClientSize.Width - $previewPanel.Width) / 2),
+        [int](($previewWindow.ClientSize.Height - $previewPanel.Height) / 2)
+    )
+    $previewPanel.Visible = $true
+    $previewWindow.Show()
+    [System.Windows.Forms.Application]::DoEvents()
+    $blackoutBitmap = [System.Drawing.Bitmap]::new(1280, 720)
+    $previewWindow.DrawToBitmap(
+        $blackoutBitmap,
+        [System.Drawing.Rectangle]::new(0, 0, 1280, 720)
+    )
+    $blackoutBitmap.Save(
+        (Join-Path $screenshotDirectory 'blackout-control.png'),
+        [System.Drawing.Imaging.ImageFormat]::Png
+    )
+    $blackoutBitmap.Dispose()
+    $previewWindow.Dispose()
+
+    $statusTimer.Dispose()
+    $script:ControlPanelTimer.Dispose()
+    $script:CursorIdleTimer.Dispose()
+    $script:MainForm.Dispose()
+    return
+}
 
 if ($SelfTest) {
     Write-Output ('BlackScreen Guard self-test: OK ({0} display(s) detected)' -f [System.Windows.Forms.Screen]::AllScreens.Count)

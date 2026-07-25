@@ -1,10 +1,30 @@
-# BlackScreen Guard｜黑屏守护
+<p align="center">
+  <img src="assets/BlackScreenGuard.png" width="160" alt="BlackScreen Guard 图标">
+</p>
 
-[English](README_EN.md) | 简体中文
+<h1 align="center">BlackScreen Guard｜黑屏守护</h1>
 
-![BlackScreen Guard 图标](assets/BlackScreenGuard.png)
+<p align="center">
+  <a href="README_EN.md">English</a> | 简体中文
+</p>
 
 适用于 Windows 11 的多显示器黑屏保护工具。使用纯黑遮罩覆盖所有显示器，防止系统休眠和显示器自动关闭，让电脑保持唤醒，确保黑屏期间后台程序继续运行，并维持远程连接所需的运行环境。
+
+## 界面预览
+
+### 控制主页
+
+<p align="center">
+  <img src="assets/screenshots/control-page.png" width="760" alt="BlackScreen Guard 控制主页">
+</p>
+
+### 黑屏控制面板
+
+黑屏后移动鼠标约 30 像素或单击，即可显示“继续黑屏”和“退出程序”控制面板。
+
+<p align="center">
+  <img src="assets/screenshots/blackout-control.png" width="960" alt="BlackScreen Guard 黑屏控制面板">
+</p>
 
 ## 功能
 
@@ -57,4 +77,5 @@ BlackScreenGuard.ps1          主程序
 build-exe.cmd                 EXE 构建入口
 package.sed                   IExpress 打包配置
 assets/                       图标资源
+assets/screenshots/           README 界面截图
 ```
