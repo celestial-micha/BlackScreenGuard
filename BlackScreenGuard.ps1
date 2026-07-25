@@ -289,6 +289,14 @@ $script:CursorIdleTimer.Add_Tick({
 
 $script:MainForm = [System.Windows.Forms.Form]::new()
 $script:MainForm.Text = 'BlackScreen Guard｜黑屏守护'
+$appIconCandidates = @(
+    (Join-Path $PSScriptRoot 'BlackScreenGuard.ico'),
+    (Join-Path $PSScriptRoot 'assets\BlackScreenGuard.ico')
+)
+$appIconPath = $appIconCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+if ($null -ne $appIconPath) {
+    $script:MainForm.Icon = [System.Drawing.Icon]::new($appIconPath)
+}
 $script:MainForm.ClientSize = [System.Drawing.Size]::new(760, 650)
 $script:MainForm.MinimumSize = [System.Drawing.Size]::new(776, 689)
 $script:MainForm.StartPosition = [System.Windows.Forms.FormStartPosition]::CenterScreen

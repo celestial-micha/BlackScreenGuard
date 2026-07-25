@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/BlackScreenGuard.png" width="160" alt="BlackScreen Guard 图标">
+  <img src="BlackScreenGuard-logo.png" width="160" alt="BlackScreen Guard 图标">
 </p>
 
 <h1 align="center">BlackScreen Guard｜黑屏守护</h1>
@@ -19,6 +19,12 @@
 </p>
 
 ### 黑屏控制面板
+
+点击“开始”后，程序首先以纯黑画面覆盖所有显示器。
+
+<p align="center">
+  <img src="assets/screenshots/blackout.png" width="960" alt="BlackScreen Guard 纯黑画面">
+</p>
 
 黑屏后移动鼠标约 30 像素或单击，即可显示“继续黑屏”和“退出程序”控制面板。
 
@@ -78,4 +84,6 @@ build-exe.cmd                 EXE 构建入口
 package.sed                   IExpress 打包配置
 assets/                       图标资源
 assets/screenshots/           README 界面截图
+BlackScreenGuard-logo.png     高清 Logo
+BlackScreenGuard.ico          程序窗口图标
 ```

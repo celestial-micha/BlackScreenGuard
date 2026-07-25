@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/BlackScreenGuard.png" width="160" alt="BlackScreen Guard icon">
+  <img src="BlackScreenGuard-logo.png" width="160" alt="BlackScreen Guard icon">
 </p>
 
 <h1 align="center">BlackScreen Guard</h1>
@@ -19,6 +19,12 @@ A multi-monitor blackout utility for Windows 11. It covers every connected displ
 </p>
 
 ### Blackout control panel
+
+After selecting **Start**, the application first covers every display with a pure-black image.
+
+<p align="center">
+  <img src="assets/screenshots/blackout.png" width="960" alt="BlackScreen Guard pure-black screen">
+</p>
 
 Move the pointer by about 30 pixels or click during blackout to reveal the **Continue Blackout** and **Exit** controls.
 
@@ -78,4 +84,6 @@ build-exe.cmd                 EXE build entry point
 package.sed                   IExpress package definition
 assets/                       Icon assets
 assets/screenshots/           README interface screenshots
+BlackScreenGuard-logo.png     High-resolution logo
+BlackScreenGuard.ico          Application window icon
 ```

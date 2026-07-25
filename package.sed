@@ -25,6 +25,7 @@ SourceFiles=SourceFiles
 [Strings]
 FILE0="BlackScreenGuard.ps1"
 FILE1="run-packaged.cmd"
+FILE2="BlackScreenGuard.ico"
 
 [SourceFiles]
 SourceFiles0=.
@@ -32,3 +33,4 @@ SourceFiles0=.
 [SourceFiles0]
 %FILE0%=
 %FILE1%=
+%FILE2%=
