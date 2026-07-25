@@ -44,7 +44,7 @@
 - 支持“继续黑屏”、退出程序和 `Esc` 快速退出
 - 保留 Windows `Ctrl + Alt + Delete` 安全序列
 
-## 下载与使用
+## EXE 下载与使用
 
 从 [Releases](https://github.com/celestial-micha/BlackScreenGuard/releases) 下载最新的 `BlackScreenGuard.exe`，双击运行，然后在控制页面点击“开始”。
 
@@ -86,4 +86,13 @@ assets/                       图标资源
 assets/screenshots/           README 界面截图
 BlackScreenGuard-logo.png     高清 Logo
 BlackScreenGuard.ico          程序窗口图标
+LICENSE                       MIT 开源许可证
 ```
+
+## 开源许可证
+
+本项目采用 [MIT License](LICENSE) 开源。
+
+你可以自由使用、复制、修改和分发本项目；使用或分发时请保留原始版权与许可证声明，并注明项目来源：
+
+[celestial-micha/BlackScreenGuard](https://github.com/celestial-micha/BlackScreenGuard)

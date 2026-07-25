@@ -44,7 +44,7 @@ Move the pointer by about 30 pixels or click during blackout to reveal the **Con
 - Provides Continue Blackout, Exit, and `Esc` quick-exit controls
 - Leaves the Windows `Ctrl + Alt + Delete` secure attention sequence intact
 
-## Download and use
+## Download and use the EXE
 
 Download the latest `BlackScreenGuard.exe` from [Releases](https://github.com/celestial-micha/BlackScreenGuard/releases), run it, and select **Start** on the control page.
 
@@ -86,4 +86,13 @@ assets/                       Icon assets
 assets/screenshots/           README interface screenshots
 BlackScreenGuard-logo.png     High-resolution logo
 BlackScreenGuard.ico          Application window icon
+LICENSE                       MIT open-source license
 ```
+
+## License
+
+This project is open source under the [MIT License](LICENSE).
+
+You may use, copy, modify, and distribute this project. When using or redistributing it, retain the original copyright and license notice and acknowledge the project source:
+
+[celestial-micha/BlackScreenGuard](https://github.com/celestial-micha/BlackScreenGuard)
