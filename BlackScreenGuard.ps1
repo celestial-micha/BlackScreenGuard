@@ -234,6 +234,7 @@ function New-BlackWindow {
         }
     })
     $window.Add_Deactivate({
+        param($sender, $eventArgs)
         if ($script:IsBlackoutActive) {
             $sender.TopMost = $true
             $sender.Activate()

@@ -11,8 +11,8 @@ rcedit(executable, {
     FileDescription: "BlackScreen Guard for Windows 11",
     OriginalFilename: "BlackScreenGuard.exe",
   },
-  "file-version": "1.0.1.0",
-  "product-version": "1.0.1.0",
+  "file-version": "1.0.2.0",
+  "product-version": "1.0.2.0",
 }).catch((error) => {
   console.error(error);
   process.exit(1);
