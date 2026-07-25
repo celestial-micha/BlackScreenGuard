@@ -16,6 +16,14 @@ public static class BlackScreenGuardNative {
     [DllImport("kernel32.dll")]
     public static extern uint SetThreadExecutionState(uint flags);
 
+    [DllImport("dwmapi.dll")]
+    public static extern int DwmSetWindowAttribute(
+        IntPtr hwnd,
+        int attribute,
+        ref int value,
+        int valueSize
+    );
+
     public const uint ES_CONTINUOUS       = 0x80000000;
     public const uint ES_SYSTEM_REQUIRED  = 0x00000001;
     public const uint ES_DISPLAY_REQUIRED = 0x00000002;
@@ -53,6 +61,30 @@ function Restart-CursorIdleTimer {
     $script:CursorIdleTimer.Stop()
     if ($script:IsBlackoutActive) {
         $script:CursorIdleTimer.Start()
+    }
+}
+
+function Enable-DarkWindowFrame {
+    param([System.Windows.Forms.Form]$Form)
+    if (-not $Form.IsHandleCreated) {
+        [void]$Form.Handle
+    }
+    $enabled = 1
+    # DWMWA_USE_IMMERSIVE_DARK_MODE is 20 on current Windows 11 builds.
+    # Attribute 19 covers earlier compatible builds.
+    $result = [BlackScreenGuardNative]::DwmSetWindowAttribute(
+        $Form.Handle,
+        20,
+        [ref]$enabled,
+        4
+    )
+    if ($result -ne 0) {
+        [void][BlackScreenGuardNative]::DwmSetWindowAttribute(
+            $Form.Handle,
+            19,
+            [ref]$enabled,
+            4
+        )
     }
 }
 
@@ -308,6 +340,7 @@ $statusTimer.Add_Tick({
 $statusTimer.Start()
 
 $script:MainForm.Controls.AddRange(@($title, $subtitle, $statusCard, $settingsCard, $script:StartButton))
+$script:MainForm.Add_Shown({ Enable-DarkWindowFrame $script:MainForm })
 $script:MainForm.Add_FormClosing({
     if ($script:IsBlackoutActive) { Stop-Blackout }
     [void][BlackScreenGuardNative]::SetThreadExecutionState([BlackScreenGuardNative]::ES_CONTINUOUS)
@@ -321,19 +354,17 @@ if ($CaptureScreenshots) {
     $script:MainForm.Location = [System.Drawing.Point]::new(-20000, -20000)
     $script:MainForm.Show()
     [System.Windows.Forms.Application]::DoEvents()
+    Enable-DarkWindowFrame $script:MainForm
     $controlBitmap = [System.Drawing.Bitmap]::new(
         $script:MainForm.ClientSize.Width,
         $script:MainForm.ClientSize.Height
     )
-    $script:MainForm.DrawToBitmap(
-        $controlBitmap,
-        [System.Drawing.Rectangle]::new(
-            0,
-            0,
-            $script:MainForm.ClientSize.Width,
-            $script:MainForm.ClientSize.Height
-        )
-    )
+    $controlGraphics = [System.Drawing.Graphics]::FromImage($controlBitmap)
+    $controlGraphics.Clear($script:MainForm.BackColor)
+    foreach ($control in $script:MainForm.Controls) {
+        $control.DrawToBitmap($controlBitmap, $control.Bounds)
+    }
+    $controlGraphics.Dispose()
     $controlBitmap.Save(
         (Join-Path $screenshotDirectory 'control-page.png'),
         [System.Drawing.Imaging.ImageFormat]::Png
