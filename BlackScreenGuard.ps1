@@ -16,17 +16,6 @@ public static class BlackScreenGuardNative {
     [DllImport("kernel32.dll")]
     public static extern uint SetThreadExecutionState(uint flags);
 
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern IntPtr SendMessageTimeout(
-        IntPtr hwnd,
-        uint message,
-        UIntPtr wParam,
-        IntPtr lParam,
-        uint flags,
-        uint timeout,
-        out UIntPtr result
-    );
-
     [DllImport("dwmapi.dll")]
     public static extern int DwmSetWindowAttribute(
         IntPtr hwnd,
@@ -37,24 +26,7 @@ public static class BlackScreenGuardNative {
 
     public const uint ES_CONTINUOUS       = 0x80000000;
     public const uint ES_SYSTEM_REQUIRED  = 0x00000001;
-
-    private static readonly IntPtr HWND_BROADCAST = new IntPtr(0xffff);
-    private const uint WM_SYSCOMMAND = 0x0112;
-    private const uint SC_MONITORPOWER = 0xF170;
-    private const uint SMTO_ABORTIFHUNG = 0x0002;
-
-    public static bool RequestDisplayPower(int state) {
-        UIntPtr result;
-        return SendMessageTimeout(
-            HWND_BROADCAST,
-            WM_SYSCOMMAND,
-            new UIntPtr(SC_MONITORPOWER),
-            new IntPtr(state),
-            SMTO_ABORTIFHUNG,
-            1000,
-            out result
-        ) != IntPtr.Zero;
-    }
+    public const uint ES_DISPLAY_REQUIRED = 0x00000002;
 }
 '@
 
@@ -72,8 +44,6 @@ $script:ControlPanelTimer = [System.Windows.Forms.Timer]::new()
 $script:ControlPanelTimer.Interval = 2000
 $script:CursorIdleTimer = [System.Windows.Forms.Timer]::new()
 $script:CursorIdleTimer.Interval = 2000
-$script:DisplayPowerTimer = [System.Windows.Forms.Timer]::new()
-$script:DisplayPowerTimer.Interval = 500
 
 function Set-BlackoutCursorVisible {
     param([bool]$Visible)
@@ -91,14 +61,6 @@ function Restart-CursorIdleTimer {
     $script:CursorIdleTimer.Stop()
     if ($script:IsBlackoutActive) {
         $script:CursorIdleTimer.Start()
-    }
-}
-
-function Schedule-DisplayPowerOff {
-    $script:DisplayPowerTimer.Stop()
-    if ($script:IsBlackoutActive -and -not $script:ControlPanelVisible) {
-        # 给窗口绘制和按钮点击留出时间，再请求 Windows 关闭显示器。
-        $script:DisplayPowerTimer.Start()
     }
 }
 
@@ -181,17 +143,13 @@ function Set-ControlPanelVisibility {
         $script:StartMousePosition = [System.Windows.Forms.Cursor]::Position
         $script:SuppressCursorRevealUntil = (Get-Date).AddMilliseconds(500)
         Set-BlackoutCursorVisible $false
-        Schedule-DisplayPowerOff
     }
 }
 
 function Stop-Blackout {
     $script:ControlPanelTimer.Stop()
     $script:CursorIdleTimer.Stop()
-    $script:DisplayPowerTimer.Stop()
     $script:IsBlackoutActive = $false
-    # 确保通过 Esc 或其他程序化路径退出时显示器恢复。
-    [void][BlackScreenGuardNative]::RequestDisplayPower(-1)
     Set-BlackoutCursorVisible $true
     foreach ($window in @($script:BlackWindows)) {
         $window.Close()
@@ -218,9 +176,7 @@ function Test-ActivationGesture {
     if (-not $script:CursorShown) {
         Set-BlackoutCursorVisible $true
         $script:StartMousePosition = [System.Windows.Forms.Cursor]::Position
-        if ($EventArgs.Button -eq [System.Windows.Forms.MouseButtons]::None) {
-            return
-        }
+        return
     }
 
     $current = [System.Windows.Forms.Cursor]::Position
@@ -276,9 +232,6 @@ function New-BlackWindow {
         if ($eventArgs.KeyCode -eq [System.Windows.Forms.Keys]::Escape) {
             $script:MainForm.Close()
         }
-        else {
-            Schedule-DisplayPowerOff
-        }
     })
     $window.Add_Deactivate({
         param($sender, $eventArgs)
@@ -304,9 +257,9 @@ function Start-Blackout {
     $script:StateValue.ForeColor = [System.Drawing.Color]::FromArgb(22, 163, 74)
     $script:StartTimeValue.Text = $script:SessionStartedAt.ToString('yyyy-MM-dd HH:mm:ss')
 
-    # 保持系统和后台任务运行，但不再使用 ES_DISPLAY_REQUIRED 保持背光开启。
     $flags = [BlackScreenGuardNative]::ES_CONTINUOUS -bor
-             [BlackScreenGuardNative]::ES_SYSTEM_REQUIRED
+             [BlackScreenGuardNative]::ES_SYSTEM_REQUIRED -bor
+             [BlackScreenGuardNative]::ES_DISPLAY_REQUIRED
     [void][BlackScreenGuardNative]::SetThreadExecutionState($flags)
 
     foreach ($screen in [System.Windows.Forms.Screen]::AllScreens) {
@@ -325,7 +278,6 @@ function Start-Blackout {
     } | Select-Object -First 1
     if ($null -eq $primaryWindow) { $primaryWindow = $script:BlackWindows[0] }
     $primaryWindow.Activate()
-    Schedule-DisplayPowerOff
 }
 
 $script:ControlPanelTimer.Add_Tick({ Set-ControlPanelVisibility $false })
@@ -333,14 +285,6 @@ $script:CursorIdleTimer.Add_Tick({
     $script:CursorIdleTimer.Stop()
     if ($script:IsBlackoutActive) {
         Set-BlackoutCursorVisible $false
-        Schedule-DisplayPowerOff
-    }
-})
-$script:DisplayPowerTimer.Add_Tick({
-    $script:DisplayPowerTimer.Stop()
-    if ($script:IsBlackoutActive -and -not $script:ControlPanelVisible) {
-        # state 2 对应 SC_MONITORPOWER 的“关闭显示器”。电脑本身仍保持唤醒。
-        [void][BlackScreenGuardNative]::RequestDisplayPower(2)
     }
 })
 
@@ -361,7 +305,7 @@ $script:MainForm.BackColor = [System.Drawing.Color]::FromArgb(9, 13, 21)
 $script:MainForm.Font = [System.Drawing.Font]::new('Microsoft YaHei UI', 10)
 
 $title = New-Label -Text 'BlackScreen Guard｜黑屏守护' -X 42 -Y 32 -Width 650 -Height 42 -Size 21 -Style Bold -Color ([System.Drawing.Color]::FromArgb(248, 250, 252))
-$subtitle = New-Label -Text '适用于 Windows 11 的显示器熄屏保护工具。请求关闭显示器背光，并用纯黑遮罩保护唤醒画面；电脑和后台程序仍保持运行，也可维持现有远程连接所需的运行环境。' -X 45 -Y 78 -Width 650 -Height 52 -Size 9 -Color ([System.Drawing.Color]::FromArgb(148, 163, 184))
+$subtitle = New-Label -Text '适用于 Windows 11 的显示器黑屏保护工具。使用纯黑遮罩覆盖所有显示器，防止系统休眠和显示器自动关闭，让电脑保持唤醒，确保黑屏期间后台程序继续运行，并维持远程连接所需的运行环境。' -X 45 -Y 78 -Width 650 -Height 52 -Size 9 -Color ([System.Drawing.Color]::FromArgb(148, 163, 184))
 
 $statusCard = [System.Windows.Forms.Panel]::new()
 $statusCard.Location = [System.Drawing.Point]::new(42, 145)
@@ -385,7 +329,7 @@ $settingsCard.Size = [System.Drawing.Size]::new(676, 160)
 $settingsCard.BackColor = [System.Drawing.Color]::FromArgb(18, 25, 38)
 $settingsHeading = New-Label -Text '保护设置' -X 24 -Y 18 -Width 160 -Height 28 -Size 12 -Style Bold
 $sleepStatus = New-Label -Text '●  已阻止系统休眠' -X 24 -Y 65 -Width 250 -Height 25 -Color ([System.Drawing.Color]::FromArgb(74, 222, 128))
-$displayStatus = New-Label -Text '●  启动后请求关闭显示器背光' -X 335 -Y 65 -Width 280 -Height 25 -Color ([System.Drawing.Color]::FromArgb(74, 222, 128))
+$displayStatus = New-Label -Text '●  已阻止显示器自动关闭' -X 335 -Y 65 -Width 280 -Height 25 -Color ([System.Drawing.Color]::FromArgb(74, 222, 128))
 $gestureHint = New-Label -Text '轻移显示鼠标；移动约 30 像素或单击显示控制面板；Esc 退出。' -X 24 -Y 112 -Width 620 -Height 25 -Size 9 -Color ([System.Drawing.Color]::FromArgb(148, 163, 184))
 $settingsCard.Controls.AddRange(@($settingsHeading, $sleepStatus, $displayStatus, $gestureHint))
 
@@ -463,7 +407,6 @@ if ($CaptureScreenshots) {
     $statusTimer.Dispose()
     $script:ControlPanelTimer.Dispose()
     $script:CursorIdleTimer.Dispose()
-    $script:DisplayPowerTimer.Dispose()
     $script:MainForm.Dispose()
     return
 }
@@ -473,7 +416,6 @@ if ($SelfTest) {
     $statusTimer.Dispose()
     $script:ControlPanelTimer.Dispose()
     $script:CursorIdleTimer.Dispose()
-    $script:DisplayPowerTimer.Dispose()
     $script:MainForm.Dispose()
     return
 }
