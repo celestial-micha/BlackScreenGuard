@@ -8,7 +8,7 @@
   English | <a href="README.md">简体中文</a>
 </p>
 
-A multi-monitor blackout utility for Windows 11. It covers every connected display with a pure-black overlay, prevents idle sleep and automatic display power-off, keeps the computer awake, allows background applications to continue running, and maintains the operating environment required by existing remote connections.
+A multi-monitor display-off utility for Windows 11. It first covers every display with a pure-black overlay and then asks Windows to turn the displays off, while keeping the computer, background applications, and existing remote sessions running.
 
 ## Interface preview
 
@@ -20,13 +20,13 @@ A multi-monitor blackout utility for Windows 11. It covers every connected displ
 
 ### Blackout control panel
 
-After selecting **Start**, the application first covers every display with a pure-black image.
+After selecting **Start**, the application covers every display with a pure-black image and then asks Windows to turn off the display backlights.
 
 <p align="center">
   <img src="assets/screenshots/blackout.png" width="960" alt="BlackScreen Guard pure-black screen">
 </p>
 
-Move the pointer by about 30 pixels or click during blackout to reveal the **Continue Blackout** and **Exit** controls.
+Mouse or keyboard input wakes the displays. Move the pointer by about 30 pixels or click to reveal the **Continue Blackout** and **Exit** controls. Selecting **Continue Blackout** turns the displays off again.
 
 <p align="center">
   <img src="assets/screenshots/blackout-control.png" width="960" alt="BlackScreen Guard blackout control panel">
@@ -34,8 +34,9 @@ Move the pointer by about 30 pixels or click during blackout to reveal the **Con
 
 ## Features
 
-- Covers every connected monitor with a pure-black window
-- Prevents idle system sleep and automatic display power-off
+- Asks Windows to turn off every connected display so supported LCD backlights actually switch off
+- Keeps a pure-black window ready to protect the picture when input wakes a display
+- Prevents idle system sleep while allowing the displays to remain off
 - Keeps background applications and existing network sessions running
 - Captures ordinary keyboard and mouse input inside the blackout windows
 - Hides the pointer after about 1.2 seconds of inactivity and reveals it on movement
@@ -70,8 +71,10 @@ pnpm install
 
 ## How it works and limitations
 
-- The blackout is a topmost pure-black window; it does not physically turn off the monitor. An LCD backlight normally remains on.
-- The application uses Windows `SetThreadExecutionState` to request prevention of idle sleep and automatic display power-off.
+- The application uses Windows `SC_MONITORPOWER` to request display power-off and `SetThreadExecutionState` only to prevent idle system sleep, so background applications can keep running.
+- On most built-in panels and power-management-capable external monitors, display-off actually switches off the LCD backlight. The graphics driver, monitor firmware, and connection ultimately determine whether the request is honored; the pure-black overlay remains as a fallback.
+- Mouse or keyboard input, system notifications, and some peripherals can wake a display. After input becomes idle, or when **Continue Blackout** is selected, the application requests display-off again.
+- On OLED displays, pure-black pixels normally emit no light, but the application still requests display-off to reduce power use.
 - Domain policies, security software, network loss, shutdowns, restarts, and power loss can still affect background applications and remote connectivity.
 - `Ctrl + Alt + Delete` is a Windows secure attention sequence and cannot—and should not—be intercepted by a regular application.
 
