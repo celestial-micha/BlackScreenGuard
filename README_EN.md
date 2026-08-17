@@ -8,7 +8,7 @@
   English | <a href="README.md">简体中文</a>
 </p>
 
-A multi-monitor display-off utility for Windows 11. It first covers every display with a pure-black overlay and then asks Windows to turn the displays off, while keeping the computer, background applications, and existing remote sessions running.
+A multi-monitor display-off utility for Windows 11. It first covers every display with a pure-black overlay and then asks Windows to turn the displays off, while keeping the computer, background applications, and existing remote sessions running. The application is a directly compiled C# WinForms executable with no self-extracting payload, PowerShell launcher, or runtime script.
 
 ## Interface preview
 
@@ -39,9 +39,9 @@ Mouse or keyboard input wakes the displays. Move the pointer by about 30 pixels 
 - Prevents idle system sleep while allowing the displays to remain off
 - Keeps background applications and existing network sessions running
 - Captures ordinary keyboard and mouse input inside the blackout windows
-- Hides the pointer after about 1.2 seconds of inactivity and reveals it on movement
+- Hides the pointer after about 2 seconds of inactivity and reveals it on movement
 - Shows a compact control panel after a click or about 30 pixels of movement
-- Automatically hides the control panel after 4 seconds of inactivity
+- Automatically hides the control panel after about 2 seconds of inactivity
 - Provides Continue Blackout, Exit, and `Esc` quick-exit controls
 - Leaves the Windows `Ctrl + Alt + Delete` secure attention sequence intact
 
@@ -53,7 +53,7 @@ No installation is required. Because the executable is not code-signed, Windows 
 
 ## Run from source
 
-Double-click `启动 BlackScreen Guard.cmd`. Windows 11 already includes the required Windows PowerShell and WinForms components.
+Double-click `启动 BlackScreen Guard.cmd`. If the executable has not been built, the launcher first invokes the .NET Framework C# compiler included with Windows and then runs the resulting EXE directly.
 
 ## Build the EXE
 
@@ -63,15 +63,19 @@ On Windows 11, double-click `build-exe.cmd`. The output is written to:
 dist\BlackScreenGuard.exe
 ```
 
-Packaging uses the IExpress component included with Windows. Embedding the custom icon requires Node.js; before the first build, run:
+The build uses the .NET Framework C# compiler included with Windows. It requires no Node.js installation, PowerShell modules, or third-party packaging tools. The build script creates a temporary EXE, runs its built-in self-test, and only then replaces the final output.
 
-```powershell
-pnpm install
-```
+## Security and distribution
+
+- The release file is a regular C# WinForms executable and does not extract or launch another script.
+- The application runs with the current user's permissions; its manifest explicitly requests `asInvoker` and never requests elevation.
+- Publisher metadata is `celestial-micha` and no longer inherits Microsoft metadata from an IExpress stub.
+- Public builds are not yet signed with a commercial Authenticode certificate, so a newly downloaded file can still receive an “unknown publisher” SmartScreen reputation prompt. That prompt is distinct from Defender classifying the file as a Trojan.
+- Production files should be code-signed only after all icons, versions, and resources are final; never modify a file after signing.
 
 ## How it works and limitations
 
-- The application uses Windows `SC_MONITORPOWER` to request display power-off and `SetThreadExecutionState` only to prevent idle system sleep, so background applications can keep running.
+- The C# application directly invokes Windows `SC_MONITORPOWER` to request display power-off and uses `SetThreadExecutionState` only to prevent idle system sleep, so background applications can keep running.
 - On most built-in panels and power-management-capable external monitors, display-off actually switches off the LCD backlight. The graphics driver, monitor firmware, and connection ultimately determine whether the request is honored; the pure-black overlay remains as a fallback.
 - Mouse or keyboard input, system notifications, and some peripherals can wake a display. After input becomes idle, or when **Continue Blackout** is selected, the application requests display-off again.
 - On OLED displays, pure-black pixels normally emit no light, but the application still requests display-off to reduce power use.
@@ -81,10 +85,10 @@ pnpm install
 ## Project layout
 
 ```text
-BlackScreenGuard.ps1          Main application
-启动 BlackScreen Guard.cmd    Source launcher
-build-exe.cmd                 EXE build entry point
-package.sed                   IExpress package definition
+src/BlackScreenGuard.cs       C# WinForms application
+src/app.manifest              Windows permissions and compatibility manifest
+启动 BlackScreen Guard.cmd    Build-and-run entry point
+build-exe.cmd                 C# build and self-test entry point
 assets/                       Icon assets
 assets/screenshots/           README interface screenshots
 BlackScreenGuard-logo.png     High-resolution logo
